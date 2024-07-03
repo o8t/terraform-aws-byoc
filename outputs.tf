@@ -33,10 +33,9 @@ output ssh_private_key {
   )
 }
 
-output "allowed_subnet_ids" {
-  description = "The subnets to allow launching satellites into."
+output "allowed_subnet_id" {
+  description = "The subnet to allow launching satellites into."
   value = var.subnet
-  sensitive = true
 }
 
 output "instance_profile_arn" {
