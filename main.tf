@@ -20,7 +20,7 @@ resource "aws_key_pair" satellite_ssh_key {
   key_name = "${var.cloud_name}-satellite-key"
   public_key = (
     var.ssh_public_key == ""
-    ? tls_private_key.satellite.public_key_openssh
+    ? tls_private_key.satellite[0].public_key_openssh
     : var.ssh_public_key
   )
   key_name_prefix = "rsa"
