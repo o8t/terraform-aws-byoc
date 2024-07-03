@@ -11,7 +11,7 @@ locals {
 ## ---------------------------------------------------------------------------------------------------------------------
 
 resource "tls_private_key" satellite {
-  count = try(var.ssh_public_key) ? 0 : 1
+  count = var.ssh_public_key == ""  ? 0 : 1
   algorithm = "RSA"
   rsa_bits  = 4096
 }
@@ -19,9 +19,9 @@ resource "tls_private_key" satellite {
 resource "aws_key_pair" satellite_ssh_key {
   key_name = "${var.cloud_name}-satellite-key"
   public_key = (
-    try(var.ssh_public_key)
-    ? var.ssh_public_key
-    : tls_private_key.satellite.public_key_openssh
+    var.ssh_public_key == ""
+    ? tls_private_key.satellite.public_key_openssh
+    : var.ssh_public_key
   )
   key_name_prefix = "rsa"
   tags = local.tags
