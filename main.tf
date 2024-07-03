@@ -11,7 +11,7 @@ locals {
 ## ---------------------------------------------------------------------------------------------------------------------
 
 resource "tls_private_key" satellite {
-  count = var.ssh_public_key == ""  ? 0 : 1
+  count = var.ssh_public_key == ""  ? 1 : 0
   algorithm = "RSA"
   rsa_bits  = 4096
 }
@@ -23,7 +23,6 @@ resource "aws_key_pair" satellite_ssh_key {
     ? tls_private_key.satellite[0].public_key_openssh
     : var.ssh_public_key
   )
-  key_name_prefix = "rsa"
   tags = local.tags
 }
 
@@ -48,38 +47,39 @@ resource "aws_security_group" satellite_security_group {
   name = "${var.cloud_name}-satellites-access"
   description = "Minimal required rules for satellites."
   vpc_id = data.aws_subnet.current.vpc_id
-  ingress = [
-    {
-      cidr_blocks = data.aws_subnet.current.cidr_block
+
+  ingress {
+      cidr_blocks = [data.aws_subnet.current.cidr_block]
       protocol = "tcp"
       description = "Allow SSH access from within the ingress subnet"
       from_port = 22
       to_port = 22
-    },
-    {
-      cidr_blocks = data.aws_subnet.current.cidr_block
+  }
+
+  ingress {
+      cidr_blocks = [data.aws_subnet.current.cidr_block]
       protocol = "tcp"
       description = "Allow Buildkit access from within the ingress subnet"
       from_port = 8372
       to_port = 8372
-    },
-    {
-      cidr_blocks = data.aws_subnet.current.cidr_block
+  }
+
+  ingress {
+      cidr_blocks = [data.aws_subnet.current.cidr_block]
       protocol = "tcp"
       description = "Allow Prometheus access from within the ingress subnet"
       from_port = 9000
       to_port = 9000
-    }
-  ]
-  egress = [
-    {
-      cidr_blocks = "0.0.0.0/0"
+  }
+
+  egress {
+      cidr_blocks = ["0.0.0.0/0"]
       protocol = -1
       description = "Satellites have general outbound access to whatever they need"
       from_port = -1
       to_port = -1
     }
-  ]
+
   tags = local.tags
 }
 
@@ -96,48 +96,47 @@ resource "aws_iam_role" satellite_instance_role {
   ]
   max_session_duration = 3600
   name = "${var.cloud_name}-satellite-instance"
-  assume_role_policy = {
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "ec2.amazonaws.com"
-        }
-      }
-    ]
-  }
+  assume_role_policy = data.aws_iam_policy_document.satellite_instance_assume_role_policy_document.json
   tags = local.tags
+}
+
+data aws_iam_policy_document satellite_instance_assume_role_policy_document {
+  version = "2012-10-17"
+
+  statement {
+    actions = ["sts:AssumeRole"]
+    effect = "Allow"
+    principals {
+      identifiers = ["ec2.amazonaws.com"]
+      type = "Service"
+    }
+  }
 }
 
 resource "aws_iam_instance_profile" satellite_instance_profile {
   path = "/earthly/satellites/${var.cloud_name}/"
-  role = [
-    aws_iam_role.satellite_instance_role.arn
-  ]
-  name = aws_iam_role.satellite_instance_role.arn
+  role = aws_iam_role.satellite_instance_role.name
 }
 
 resource "aws_iam_policy" satellite_instance_policy {
   name = "${var.cloud_name}-satellite-policy"
   description = "The policy for the Satellite instance profile. Used to enable logging to Cloudwatch"
   path = "/earthly/satellites/${var.cloud_name}/"
-  policy = {
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Resource = [
-          "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:${aws_cloudwatch_log_group.satellite_logs.arn}:log-stream:*",
-          "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:${aws_cloudwatch_log_group.satellite_logs.arn}"
-        ]
-        Action = [
-          "logs:PutLogEvents",
-          "logs:CreateLogStream"
-        ]
-        Effect = "Allow"
-      }
+  policy = data.aws_iam_policy_document.satellite_instance_policy_document.json
+}
+
+data aws_iam_policy_document satellite_instance_policy_document {
+  version = "2012-10-17"
+  statement {
+    resources = [
+      "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:${aws_cloudwatch_log_group.satellite_logs.arn}:log-stream:*",
+      "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:${aws_cloudwatch_log_group.satellite_logs.arn}"
     ]
+    actions = [
+      "logs:PutLogEvents",
+      "logs:CreateLogStream"
+    ]
+    effect = "Allow"
   }
 }
 
@@ -155,78 +154,83 @@ resource "aws_iam_role" earthly_access_role {
   ]
   max_session_duration = 3600
   name = "${var.cloud_name}-satellites"
-  assume_role_policy = {
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          AWS = "arn:aws:iam::404851345508:role/compute-"
-        }
-      }
-    ]
-  }
+  assume_role_policy = data.aws_iam_policy_document.earthly_access_assume_role_policy_document.json
   tags = local.tags
+}
+
+data aws_iam_policy_document earthly_access_assume_role_policy_document {
+  version = "2012-10-17"
+  statement {
+      actions = ["sts:AssumeRole"]
+      effect = "Allow"
+      principals {
+        identifiers = ["arn:aws:iam::404851345508:role/compute-"]
+        type = "AWS"
+      }
+  }
 }
 
 resource "aws_iam_policy" earthly_access_policy {
   name = "${var.cloud_name}-earthly-access-policy"
   path = "/earthly/satellites/${var.cloud_name}/"
   description = "This is the permissions that Earthly's compute management service needs to manage your satellites for you"
-  policy = {
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Resource = "*"
-        Action = [
-          "tag:GetResources",
-          "iam:PassRole",
-          "ec2:DescribeSubnets",
-          "ec2:DescribeInstances",
-          "ec2:DescribeInstanceTypes",
-          "ec2:DescribeImages"
-        ]
-        Effect = "Allow"
-      },
-      {
-        Resource = [
-          "arn:aws:ec2:${data.aws_region.current.name}::image/*",
-          "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:volume/*",
-          "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:security-group/${aws_security_group.satellite_security_group.id}",
-          "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:network-interface/*",
-          "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:key-pair/${aws_key_pair.satellite_ssh_key.id}",
-          "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:instance/*",
-          "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:subnet/${var.subnet}"
-        ]
-        Action = [
-          "ec2:RunInstances",
-          "ec2:ModifyInstanceAttribute"
-        ]
-        Effect = "Allow"
-      },
-      {
-        Resource = "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:instance/*"
-        Action = [
-          "ec2:TerminateInstances",
-          "ec2:StopInstances",
-          "ec2:StartInstances"
-        ]
-        Effect = "Allow"
-      },
-      {
-        Resource = [
-          "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:volume/*",
-          "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:instance/*"
-        ]
-        Action = [
-          "ec2:DetachVolume",
-          "ec2:DeleteVolume",
-          "ec2:CreateTags",
-          "ec2:AttachVolume"
-        ]
-        Effect = "Allow"
-      }
+  policy = data.aws_iam_policy_document.earthly_access_policy_document.json
+}
+
+data "aws_iam_policy_document" earthly_access_policy_document {
+  version = "2012-10-17"
+
+  statement {
+    resources = ["*"]
+    actions = [
+      "tag:GetResources",
+      "iam:PassRole",
+      "ec2:DescribeSubnets",
+      "ec2:DescribeInstances",
+      "ec2:DescribeInstanceTypes",
+      "ec2:DescribeImages"
     ]
+    effect = "Allow"
+  }
+
+  statement {
+    resources = [
+      "arn:aws:ec2:${data.aws_region.current.name}::image/*",
+      "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:volume/*",
+      "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:security-group/${aws_security_group.satellite_security_group.id}",
+      "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:network-interface/*",
+      "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:key-pair/${aws_key_pair.satellite_ssh_key.id}",
+      "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:instance/*",
+      "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:subnet/${var.subnet}"
+    ]
+    actions = [
+      "ec2:RunInstances",
+      "ec2:ModifyInstanceAttribute"
+    ]
+    effect = "Allow"
+  }
+
+  statement {
+    resources = ["arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:instance/*"]
+    actions = [
+      "ec2:TerminateInstances",
+      "ec2:StopInstances",
+      "ec2:StartInstances"
+    ]
+    effect = "Allow"
+  }
+
+  statement {
+    resources = [
+      "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:volume/*",
+      "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:instance/*"
+    ]
+    actions = [
+      "ec2:DetachVolume",
+      "ec2:DeleteVolume",
+      "ec2:CreateTags",
+      "ec2:AttachVolume"
+    ]
+    effect = "Allow"
   }
 }
