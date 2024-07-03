@@ -164,7 +164,7 @@ data aws_iam_policy_document earthly_access_assume_role_policy_document {
       actions = ["sts:AssumeRole"]
       effect = "Allow"
       principals {
-        identifiers = ["arn:aws:iam::404851345508:role/compute-"]
+        identifiers = ["arn:aws:iam::404851345508:role/compute-production"]
         type = "AWS"
       }
   }
