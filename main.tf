@@ -76,8 +76,8 @@ resource "aws_security_group" satellite_security_group {
       cidr_blocks = ["0.0.0.0/0"]
       protocol = -1
       description = "Satellites have general outbound access to whatever they need"
-      from_port = -1
-      to_port = -1
+      from_port = 0
+      to_port = 0
     }
 
   tags = local.tags
