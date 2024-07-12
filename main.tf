@@ -129,8 +129,8 @@ data aws_iam_policy_document satellite_instance_policy_document {
   version = "2012-10-17"
   statement {
     resources = [
-      "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:${aws_cloudwatch_log_group.satellite_logs.arn}:log-stream:*",
-      "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:${aws_cloudwatch_log_group.satellite_logs.arn}"
+      "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:${aws_cloudwatch_log_group.satellite_logs.name}:log-stream:*",
+      "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:${aws_cloudwatch_log_group.satellite_logs.name}"
     ]
     actions = [
       "logs:PutLogEvents",
@@ -211,12 +211,35 @@ data "aws_iam_policy_document" earthly_access_policy_document {
   }
 
   statement {
+    resources = [
+      "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:volume/*",
+      "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:network-interface/*",
+      "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:instance/*"
+    ]
+    actions = [
+      "ec2:RunInstances",
+      "ec2:CreateVolume"
+    ]
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceTag/earthly:application"
+      values   = ["satellite"]
+    }
+    effect = "Allow"
+  }
+
+  statement {
     resources = ["arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:instance/*"]
     actions = [
       "ec2:TerminateInstances",
       "ec2:StopInstances",
       "ec2:StartInstances"
     ]
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceTag/earthly:application"
+      values   = ["satellite"]
+    }
     effect = "Allow"
   }
 
@@ -228,9 +251,30 @@ data "aws_iam_policy_document" earthly_access_policy_document {
     actions = [
       "ec2:DetachVolume",
       "ec2:DeleteVolume",
-      "ec2:CreateTags",
       "ec2:AttachVolume"
     ]
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceTag/earthly:application"
+      values   = ["satellite"]
+    }
+    effect = "Allow"
+  }
+
+  statement {
+    resources = [
+      "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:volume/*",
+      "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:instance/*",
+      "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:network-interface/*"
+    ]
+    actions = [
+      "ec2:CreateTags"
+    ]
+    condition {
+      test     = "StringEquals"
+      variable = "ec2:CreateAction"
+      values   = ["RunInstances", "CreateVolume"]
+    }
     effect = "Allow"
   }
 }
