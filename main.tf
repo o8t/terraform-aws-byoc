@@ -60,9 +60,13 @@ resource "aws_vpc_security_group_egress_rule" "open_outbound" {
 
 resource "aws_vpc_security_group_ingress_rule" "satellite_ssh" {
   security_group_id = aws_security_group.satellite_security_group.id
+  cidr_ipv4 = (
+    var.sg_cidr_override == ""
+    ? data.aws_subnet.current.cidr_block
+    : var.sg_cidr_override
+  )
 
   description = "Allow SSH access from within the satellite's subnet"
-  cidr_ipv4   = data.aws_subnet.current.cidr_block
   ip_protocol = "tcp"
   from_port   = 22
   to_port     = 22
@@ -70,9 +74,13 @@ resource "aws_vpc_security_group_ingress_rule" "satellite_ssh" {
 
 resource "aws_vpc_security_group_ingress_rule" "satellite_buildkit" {
   security_group_id = aws_security_group.satellite_security_group.id
+  cidr_ipv4 = (
+    var.sg_cidr_override == ""
+    ? data.aws_subnet.current.cidr_block
+    : var.sg_cidr_override
+  )
 
   description = "Allow BuildKit access from within the satellite's subnet"
-  cidr_ipv4   = data.aws_subnet.current.cidr_block
   ip_protocol = "tcp"
   from_port   = 8372
   to_port     = 8372
@@ -80,9 +88,13 @@ resource "aws_vpc_security_group_ingress_rule" "satellite_buildkit" {
 
 resource "aws_vpc_security_group_ingress_rule" "satellite_prometheus" {
   security_group_id = aws_security_group.satellite_security_group.id
+  cidr_ipv4 = (
+    var.sg_cidr_override == ""
+    ? data.aws_subnet.current.cidr_block
+    : var.sg_cidr_override
+  )
 
   description = "Allow Prometheus access from within the satellite's subnet"
-  cidr_ipv4   = data.aws_subnet.current.cidr_block
   ip_protocol = "tcp"
   from_port   = 9000
   to_port     = 9000
