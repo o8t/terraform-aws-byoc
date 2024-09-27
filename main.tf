@@ -66,7 +66,7 @@ resource "aws_vpc_security_group_ingress_rule" "satellite_ssh" {
     : var.sg_cidr_override
   )
 
-  description = "Allow SSH access from within the satellite's subnet"
+  description = "Allow SSH access from the satellites subnet"
   ip_protocol = "tcp"
   from_port   = 22
   to_port     = 22
@@ -80,7 +80,7 @@ resource "aws_vpc_security_group_ingress_rule" "satellite_buildkit" {
     : var.sg_cidr_override
   )
 
-  description = "Allow BuildKit access from within the satellite's subnet"
+  description = "Allow BuildKit access from the satellites subnet"
   ip_protocol = "tcp"
   from_port   = 8372
   to_port     = 8372
@@ -94,7 +94,7 @@ resource "aws_vpc_security_group_ingress_rule" "satellite_prometheus" {
     : var.sg_cidr_override
   )
 
-  description = "Allow Prometheus access from within the satellite's subnet"
+  description = "Allow Prometheus access from the satellites subnet"
   ip_protocol = "tcp"
   from_port   = 9000
   to_port     = 9000
