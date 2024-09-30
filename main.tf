@@ -109,13 +109,15 @@ resource "aws_vpc_security_group_ingress_rule" "satellite_prometheus" {
 resource "aws_iam_role" satellite_instance_role {
   description = "The instance role for Satellites"
   path = "/earthly/satellites/${var.cloud_name}/"
-  managed_policy_arns = [
-    aws_iam_policy.satellite_instance_policy.arn
-  ]
   max_session_duration = 3600
   name = "${var.cloud_name}-satellite-instance"
   assume_role_policy = data.aws_iam_policy_document.satellite_instance_assume_role_policy_document.json
   tags = local.tags
+}
+
+resource "aws_iam_role_policy_attachment" "satellite_instance_policy_attachment" {
+  role       = aws_iam_role.satellite_instance_role.name
+  policy_arn = aws_iam_policy.satellite_instance_policy.arn
 }
 
 data aws_iam_policy_document satellite_instance_assume_role_policy_document {
