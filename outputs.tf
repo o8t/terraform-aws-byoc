@@ -37,9 +37,9 @@ output "ssh_private_key" {
   )
 }
 
-output "instance_profile_arn" {
-  description = "The ARN of the instance profile satellites use for logging in a given cloud installation."
-  value       = aws_iam_instance_profile.satellite_instance_profile.arn
+output "instance_profile_name" {
+  description = "The name of the instance profile satellites use for logging in a given cloud installation."
+  value       = aws_iam_instance_profile.satellite_instance_profile.name
 }
 
 output "compute_role_arn" {
