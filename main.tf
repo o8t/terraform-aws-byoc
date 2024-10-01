@@ -47,41 +47,59 @@ resource "aws_security_group" satellite_security_group {
   name = "${var.cloud_name}-satellites-access"
   description = "Minimal required rules for satellites."
   vpc_id = data.aws_subnet.current.vpc_id
-
-  ingress {
-      cidr_blocks = [data.aws_subnet.current.cidr_block]
-      protocol = "tcp"
-      description = "Allow SSH access from within the ingress subnet"
-      from_port = 22
-      to_port = 22
-  }
-
-  ingress {
-      cidr_blocks = [data.aws_subnet.current.cidr_block]
-      protocol = "tcp"
-      description = "Allow Buildkit access from within the ingress subnet"
-      from_port = 8372
-      to_port = 8372
-  }
-
-  ingress {
-      cidr_blocks = [data.aws_subnet.current.cidr_block]
-      protocol = "tcp"
-      description = "Allow Prometheus access from within the ingress subnet"
-      from_port = 9000
-      to_port = 9000
-  }
-
-  egress {
-      cidr_blocks = ["0.0.0.0/0"]
-      protocol = -1
-      description = "Satellites have general outbound access to whatever they need"
-      from_port = 0
-      to_port = 0
-    }
-
   tags = local.tags
 }
+
+resource "aws_vpc_security_group_egress_rule" "open_outbound" {
+  security_group_id = aws_security_group.satellite_security_group.id
+
+  cidr_ipv4   = "0.0.0.0/0"
+  ip_protocol = "-1"
+  description = "Satellites have general outbound access to whatever they need"
+}
+
+resource "aws_vpc_security_group_ingress_rule" "satellite_ssh" {
+  security_group_id = aws_security_group.satellite_security_group.id
+  cidr_ipv4 = (
+    var.sg_cidr_override == ""
+    ? data.aws_subnet.current.cidr_block
+    : var.sg_cidr_override
+  )
+
+  description = "Allow SSH access from the satellites subnet"
+  ip_protocol = "tcp"
+  from_port   = 22
+  to_port     = 22
+}
+
+resource "aws_vpc_security_group_ingress_rule" "satellite_buildkit" {
+  security_group_id = aws_security_group.satellite_security_group.id
+  cidr_ipv4 = (
+    var.sg_cidr_override == ""
+    ? data.aws_subnet.current.cidr_block
+    : var.sg_cidr_override
+  )
+
+  description = "Allow BuildKit access from the satellites subnet"
+  ip_protocol = "tcp"
+  from_port   = 8372
+  to_port     = 8372
+}
+
+resource "aws_vpc_security_group_ingress_rule" "satellite_prometheus" {
+  security_group_id = aws_security_group.satellite_security_group.id
+  cidr_ipv4 = (
+    var.sg_cidr_override == ""
+    ? data.aws_subnet.current.cidr_block
+    : var.sg_cidr_override
+  )
+
+  description = "Allow Prometheus access from the satellites subnet"
+  ip_protocol = "tcp"
+  from_port   = 9000
+  to_port     = 9000
+}
+
 
 ## ---------------------------------------------------------------------------------------------------------------------
 ## SATELLITE INSTANCE ROLE
@@ -91,13 +109,15 @@ resource "aws_security_group" satellite_security_group {
 resource "aws_iam_role" satellite_instance_role {
   description = "The instance role for Satellites"
   path = "/earthly/satellites/${var.cloud_name}/"
-  managed_policy_arns = [
-    aws_iam_policy.satellite_instance_policy.arn
-  ]
   max_session_duration = 3600
   name = "${var.cloud_name}-satellite-instance"
   assume_role_policy = data.aws_iam_policy_document.satellite_instance_assume_role_policy_document.json
   tags = local.tags
+}
+
+resource "aws_iam_role_policy_attachment" "satellite_instance_policy_attachment" {
+  role       = aws_iam_role.satellite_instance_role.name
+  policy_arn = aws_iam_policy.satellite_instance_policy.arn
 }
 
 data aws_iam_policy_document satellite_instance_assume_role_policy_document {
